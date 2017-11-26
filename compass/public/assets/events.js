@@ -51,6 +51,12 @@ function collectEventSeries(data) {
       color: '#9e7773',
       y: 10,
       data: []
+    },
+    "application_launched_with_location": {
+      name: "Application launched with location",
+      color: "#9e777e",
+      y: 90,
+      data: []
     }
   };
 
