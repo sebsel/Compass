@@ -14,6 +14,8 @@ class Kernel extends ConsoleKernel
      */
     protected $commands = [
       'App\Console\Commands\TestTrip',
+      'App\Console\Commands\CleanFile',
+      'App\Console\Commands\GenerateKey'
     ];
 
     /**
