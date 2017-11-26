@@ -4,10 +4,77 @@ Compass is a GPS tracking server that stores data in [flat files](https://github
 
 ![mapview](screenshot-mapview.jpg)
 
+## Requirements
+
+* PHP 5.5 or above
+* MySQL (for storing user accounts and lists of databases, not for storing the actual location data)
+
+### PHP extensions
+
+You'll need to make sure the following PHP extensions are installed. Typically these are installed using the package manager of your operating system.
+
+* curl
+* mbstring
+* phpunit
+* zip
+* unzip
+
+### Optional
+
+* Redis (for the job queue, can use MySQL instead)
+
+
 ## Setup
+
+Compass is built using the [Lumen framework](https://lumen.laravel.com/). If you have any trouble getting started, you can refer to the [Lumen documentation](https://lumen.laravel.com/docs/5.1) for tips that may have been skipped or assumed in these instructions.
 
 In the `compass` directory, copy `.env.example` to `.env` and fill in the details. Install the dependencies with composer.
 
+```
+$ composer install
+```
+
+### Web Server
+Your web server will need to support URL re-routing to the index.php file of compass. This will vary based on your web server.
+
+- If you're using Apache, this will involve URL re-writing likely using .htaccess
+- If you're using Nginx, this will involve incorporating the following code into your server block, you should also add any applicable fastcgi settings inside the location block below:
+
+```
+try_files $uri /index.php?$args;
+
+  location /index.php {
+    fastcgi_param   SCRIPT_FILENAME $document_root$fastcgi_script_name;
+  }
+```
+
+### Job Queue
+For the job queue you will either need to have one of the supported options by Lumen. The two most likely options are an SQL database or Redis.
+You can find other supported options [here](https://lumen.laravel.com/docs/5.1/queues#introduction)
+
+If you're using the database queue driver (`QUEUE_DRIVER=database` defined in `.env`), you'll need to create the migration for that table:
+
+```
+$ php artisan queue:table
+```
+
+If you're using Redis, make sure you've installed the Redis server and set `QUEUE_DRIVER=redis`.
+
+You will need to run the database migrations to create the database schema:
+
+```
+$ php artisan migrate
+```
+
+Make sure the storage folder you've defined in `STORAGE_DIR` is writable by the web server (or by the PHP process if you're using php-fpm).
+
+To process jobs on the queue, run
+
+```
+$ php artisan queue:listen
+```
+
+For more details on how to configure this to run in the background, see https://lumen.laravel.com/docs/5.1/queues#running-the-queue-listener
 
 ## API
 

@@ -4,9 +4,8 @@ namespace App\Http\Controllers;
 
 use Laravel\Lumen\Routing\Controller as BaseController;
 use Illuminate\Http\Request;
-use DB;
+use DB, Log, Cache;
 use Quartz;
-use Log;
 use DateTime, DateTimeZone, DateInterval;
 use App\Jobs\TripComplete;
 use App\Jobs\NotifyOfNewLocations;
@@ -237,9 +236,17 @@ class Api extends BaseController
               $date = new DateTime($loc['properties']['timestamp']);
 
             if($date) {
-              $num++;
-              $qz->add($date, $loc);
-              $last_location = $loc;
+              $cacheKey = 'compass::'.$db->name.'::'.$date->format('U');
+
+              // Skip adding if the timestamp is already in the cache.
+              // Helps prevent writing duplicate data when the HTTP request is interrupted.
+              if(!env('CACHE_DRIVER') || !Cache::has($cacheKey)) {
+                $num++;
+                $qz->add($date, $loc);
+                if(env('CACHE_DRIVER'))
+                  Cache::put($cacheKey, 1, 360); // cache this for 6 hours
+                $last_location = $loc;
+              }
 
               if(array_key_exists('type', $loc['properties']) && $loc['properties']['type'] == 'trip') {
                 try {
@@ -262,6 +269,10 @@ class Api extends BaseController
       }
     }
 
+    if($request->input('current')) {
+      $last_location = $request->input('current');
+    }
+
     $response = [
       'result' => 'ok', 
       'saved' => $num, 
@@ -269,17 +280,20 @@ class Api extends BaseController
     ];
 
     if($last_location) {
+      /*
+      // 2017-08-22 Don't geocode cause it takes too long. Maybe make a separate route for this later.
       $geocode = self::geocode(['latitude'=>$last_location['geometry']['coordinates'][1], 'longitude'=>$last_location['geometry']['coordinates'][0]]);
       $response['geocode'] = [
         'full_name' => $geocode->full_name,
         'locality' => $geocode->locality,
         'country' => $geocode->country
       ];
-      #$response['geocode'] = null;
+      */
+      $response['geocode'] = null;
 
       // Notify subscribers that new data is available
       if($db->ping_urls) {
-        $job = (new NotifyOfNewLocations($db->id))->onQueue('compass');
+        $job = (new NotifyOfNewLocations($db->id, $last_location))->onQueue('compass');
         $this->dispatch($job);
       }
     }
